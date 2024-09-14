@@ -242,3 +242,9 @@ class Repo:
             setattr(deal, key, value)
         await self.conn.commit()
         return deal
+
+    async def get_users_usernames(self) -> list[str]:
+        res = await self.conn.execute(
+            select(User.username)
+        )
+        return res.scalars().all()

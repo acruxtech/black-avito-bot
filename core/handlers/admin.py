@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 
 from aiogram import Dispatcher
@@ -37,7 +36,8 @@ async def statistics(call: CallbackQuery, state: FSMContext, repo: Repo):
     text = (
         f"Всего в боте: {all_users}\n"
         f"Прошли регистрацию: {complete_registration_users} ({complete_registration_users / all_users * 100:.2f}%)\n"
-        f"Не прошли регистрацию: {all_users - complete_registration_users} ({(all_users - complete_registration_users) / all_users * 100:.2f}%)\n"
+        f"Не прошли регистрацию: {all_users - complete_registration_users} "
+        f"({(all_users - complete_registration_users) / all_users * 100:.2f}%)\n"
         f"Телеграм-премуим пользователей: {tg_premium_users} ({tg_premium_users / all_users * 100:.2f}%)\n"
         f"Заблокировали бота: {await repo.get_amount_blocked_users()}"
     )
@@ -169,8 +169,10 @@ async def export(callback: CallbackQuery, state: FSMContext, repo: Repo):
     with open("users.txt", "w") as f:
         users_telegram_ids = await repo.get_users_telegram_ids()
         users_ids = await repo.get_users_ids()
-        for user_id, telegram_id in zip(users_ids, users_telegram_ids):
-            f.write(f"{user_id} - {telegram_id}\n")
+        users_usernames = await repo.get_users_usernames()
+
+        for user_id, telegram_id, username in zip(users_ids, users_telegram_ids, users_usernames):
+            f.write(f"{user_id} - {telegram_id} - @{username}\n")
 
     with open("users.txt", "r") as f:
         await callback.message.answer_document(f)
@@ -293,7 +295,7 @@ async def user_settings_here_id(message: Message, repo: Repo, state: FSMContext)
         f"<b>Баланс:</b> {user.balance}\n"
         f"<b>Направление</b>: {user.job.title if user.job else '-'}\n"
         f"<b>Ценовая категория</b>: {'$' * (user.price + 1) if user.price else '-'}\n"
-        f"<b>Скиллы</b>: {user.skills if user.skills else '-'}\n",
+        f"<b>Описание услуги</b>: {user.skills if user.skills else '-'}\n",
         parse_mode="html",
         reply_markup=get_user_settings_keyboard(user.is_shadow_ban)
     )
@@ -337,7 +339,8 @@ async def user_deals(call: CallbackQuery, repo: Repo, state: FSMContext):
         await call.message.answer(
             TEXTS["deal_info"].format(
                 id=deal.id,
-                is_confirmed_by_executor=("не " if not deal.is_confirmed_by_executor else "") + "подтверждена исполнителем",
+                is_confirmed_by_executor=("не " if not deal.is_confirmed_by_executor else "") + "подтверждена "
+                                                                                                "исполнителем",
                 client_id=deal.client_id,
                 executor_id=deal.executor_id,
                 amount=deal.amount,
@@ -357,7 +360,7 @@ async def user_message(call: CallbackQuery, state: FSMContext):
     await state.set_state(UserSettings.here_message_text.state)
 
 
-async def user_message_here_text(message: Message, repo: Repo, state: FSMContext):
+async def user_message_here_text(message: Message, state: FSMContext):
     data = await state.get_data()
     user: User = data["db_user"]
 
@@ -393,7 +396,7 @@ async def user_ban(call: CallbackQuery, repo: Repo, state: FSMContext):
     await call.answer("Успешно")
 
 
-async def user_action(call: CallbackQuery, repo: Repo, state: FSMContext):
+async def user_action(call: CallbackQuery, repo: Repo):
     await call.answer()
 
     action = call.data.split("_")[-2]
@@ -422,9 +425,11 @@ def register_admin(dp: Dispatcher):
     dp.register_callback_query_handler(mailing, Text("mailing"), state="*", role=UserRole.OWNER)
     dp.register_callback_query_handler(create_mailing, Text("create_mailing"), state="*", role=UserRole.OWNER)
     dp.register_message_handler(mailing_here_time, state=Mailing.here_time, role=UserRole.OWNER)
-    dp.register_message_handler(mailing_here_post, content_types=["any"], state=Mailing.forward_post, role=UserRole.OWNER)
+    dp.register_message_handler(mailing_here_post, content_types=["any"], state=Mailing.forward_post,
+                                role=UserRole.OWNER)
     dp.register_callback_query_handler(apply_mailing, Text("apply_mailing"), state=Mailing.apply, role=UserRole.OWNER)
-    dp.register_callback_query_handler(cancel_create_mailing, Text(startswith="cancel_mailing"), state="*", role=UserRole.OWNER)
+    dp.register_callback_query_handler(cancel_create_mailing, Text(startswith="cancel_mailing"), state="*",
+                                       role=UserRole.OWNER)
     dp.register_callback_query_handler(cancel_mailing, Text("delete_mailing"), state="*", role=UserRole.OWNER)
     dp.register_callback_query_handler(export, Text("export"), state="*", role=UserRole.OWNER)
     dp.register_callback_query_handler(settings, Text("settings"), state="*", role=UserRole.OWNER)
@@ -442,10 +447,13 @@ def register_admin(dp: Dispatcher):
     # user
     dp.register_callback_query_handler(user_settings, Text("user_settings"), state="*", role=UserRole.OWNER)
     dp.register_message_handler(user_settings_here_id, state=UserSettings.here_id, role=UserRole.OWNER)
-    dp.register_callback_query_handler(user_balance, Text("user_balance"), state=UserSettings.here_action, role=UserRole.OWNER)
+    dp.register_callback_query_handler(user_balance, Text("user_balance"), state=UserSettings.here_action,
+                                       role=UserRole.OWNER)
     dp.register_message_handler(user_balance_here_amount, state=UserSettings.here_balance_amount, role=UserRole.OWNER)
-    dp.register_callback_query_handler(user_deals, Text("user_deals"), state=UserSettings.here_action, role=UserRole.OWNER)
-    dp.register_callback_query_handler(user_message, Text("user_message"), state=UserSettings.here_action, role=UserRole.OWNER)
+    dp.register_callback_query_handler(user_deals, Text("user_deals"), state=UserSettings.here_action,
+                                       role=UserRole.OWNER)
+    dp.register_callback_query_handler(user_message, Text("user_message"), state=UserSettings.here_action,
+                                       role=UserRole.OWNER)
     dp.register_message_handler(user_message_here_text, state=UserSettings.here_message_text, role=UserRole.OWNER)
     dp.register_callback_query_handler(user_ban, Text("user_ban"), state=UserSettings.here_action, role=UserRole.OWNER)
     

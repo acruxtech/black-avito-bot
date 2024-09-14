@@ -37,7 +37,7 @@ async def rialto(message: Message, repo: Repo, state: FSMContext):
     await state.set_state(Rialto.here_job)
 
 
-async def rialto_here_job(call: CallbackQuery, repo: Repo, state: FSMContext):
+async def rialto_here_job(call: CallbackQuery, state: FSMContext):
     await call.answer()
     job_id = call.data.split("_")[-1]
     await state.update_data(job_id=job_id)
@@ -63,13 +63,14 @@ async def rialto_here_price(call: CallbackQuery, repo: Repo, state: FSMContext):
     if not users:
         await call.message.answer("Доступных предложений в этом разделе и в этой ценовой категории нет.")
         return
-
     await call.message.answer(
         text=f"Предложение 1/{len(users)}\n\n" + get_user_repr(users[0]),
         parse_mode="html",
         reply_markup=get_scroll_keyboard(
-            additional_button=types.InlineKeyboardButton(text="Создать сделку", callback_data=f"create_deal_{users[0].id}"),
-            forward=f"user_1") if len(users) > 1 else None,
+            additional_button=types.InlineKeyboardButton(text="Создать сделку",
+                                                         callback_data=f"create_deal_{users[0].id}"),
+            forward=f"user_1" if len(users) > 1 else None
+        ),
     )
     await state.set_state(Rialto.swap)
 
@@ -81,7 +82,6 @@ async def user_info(call: CallbackQuery, repo: Repo, state: FSMContext):
     user_number = int(call.data.split("_")[-1])
 
     user = await repo.get_user_by_id(user_ids[user_number])
-    text = get_user_repr(user)
     await call.message.edit_text(
         text=f"Предложение {user_number + 1}/{len(user_ids)}\n\n" + get_user_repr(user),
         parse_mode="html",
@@ -125,7 +125,7 @@ async def create_deal_here_executor_id(message: Message, repo: Repo, state: FSMC
     await state.update_data(executor_id=executor_id)
 
     await message.answer(
-        "Хорошо. Отправьте сумму сделки. Она будет заморожена на вашем счете "
+        "Хорошо. Отправьте сумму сделки в $. Она будет заморожена на вашем счете "
         f"после подтверждения сделки исполнителем. Также, будет списана комиссия сервиса {FEE * 100}%"
     )
     await state.set_state(CreateDeal.here_amount)
@@ -143,7 +143,7 @@ async def create_deal_here_executor_id_callback(call: CallbackQuery, repo: Repo,
     await state.update_data(executor_id=executor_id)
 
     await call.message.answer(
-        "Хорошо. Отправьте сумму сделки. Она будет заморожена на вашем счете "
+        "Хорошо. Отправьте сумму сделки в $. Она будет заморожена на вашем счете "
         f"после подтверждения сделки исполнителем. Также, будет списана комиссия сервиса {FEE * 100}%"
     )
     await state.set_state(CreateDeal.here_amount)
@@ -321,7 +321,6 @@ async def end_deal(call: CallbackQuery, repo: Repo, state: FSMContext):
     deal_id = int(call.data.split("_")[-1])
     deal = await repo.get_deal_by_id(deal_id)
     client = await repo.get_user_by_id(deal.client_id)
-    executor = await repo.get_user_by_id(deal.executor_id)
 
     await call.message.answer("Запрос на подтверждение завершения сделки отправлен клиенту. Ожидайте его решения")
 
@@ -428,10 +427,11 @@ def register_user_rialto_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(user_info, Text(startswith="user"), state=Rialto.swap)
 
     # гарант
-    dp.register_message_handler(guarantee, Text("Гарант"), state="*")
+    dp.register_message_handler(guarantee, Text("Сделки"), state="*")
     dp.register_callback_query_handler(create_deal, Text("create_deal"), state="*")
     dp.register_message_handler(create_deal_here_executor_id, state=CreateDeal.here_executor_id)
-    dp.register_callback_query_handler(create_deal_here_executor_id_callback, Text(startswith="create_deal_"), state=Rialto.swap)
+    dp.register_callback_query_handler(create_deal_here_executor_id_callback, Text(startswith="create_deal_"),
+                                       state=Rialto.swap)
     dp.register_message_handler(create_deal_here_amount, state=CreateDeal.here_amount)
     dp.register_message_handler(create_deal_here_conditions, state=CreateDeal.here_conditions)
     dp.register_callback_query_handler(apply_creating_deal, Text("apply_creating_deal"),

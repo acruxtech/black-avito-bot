@@ -19,7 +19,7 @@ def get_user_repr(user=None, user_id: int | str = None, job: str = None, price: 
     text = (f"<b>id</b>: <code>{user_id}</code>\n\n"
             f"<b>Направление</b>: {job}\n"
             f"<b>Ценовая категория</b>: {'$' * (price + 1)}\n"
-            f"<b>Скиллы</b>: {skills}")
+            f"<b>Описание услуги</b>: {skills}")
     return text
 
 

@@ -30,7 +30,7 @@ async def registration(message: Message, state: FSMContext):
 
 
 async def registration_here_user_type(message: Message, repo: Repo, state: FSMContext):
-    if message.text == "Исполнитель":
+    if message.text == "Исполнитель👩‍💼":
         jobs = await repo.get_jobs()
         paginator = Paginator(
             data=[
@@ -46,7 +46,7 @@ async def registration_here_user_type(message: Message, repo: Repo, state: FSMCo
             reply_markup=paginator(),
         )
         await state.set_state(Registration.here_job)
-    elif message.text == "Заказчик":
+    elif message.text == "Заказчик🛍️":
         await repo.update_user(
             telegram_id=message.from_user.id,
             skills=None,
@@ -56,7 +56,7 @@ async def registration_here_user_type(message: Message, repo: Repo, state: FSMCo
             is_shadow_ban=True,
         )
         await message.answer("Регистрация завершена. Можете искать объявления в разделе 'Услуги'. Сменить роль на "
-                             "'Исполнитель' можно позднее в разделе 'Профиль'",
+                             "'Исполнитель' можно позднее в разделе 'Профиль👤'",
                              reply_markup=get_empty_keyboard())
         await state.finish()
     else:
@@ -68,7 +68,7 @@ async def registration_here_job(call: CallbackQuery, state: FSMContext):
     job_id = call.data.split("_")[-1]
     await state.update_data(job_id=job_id)
     await call.message.answer(
-        "Кратко опишите свои скиллы и условия работы",
+        "Кратко опишите свою услугу и условия работы",
         reply_markup=get_empty_keyboard(),
     )
     await state.set_state(Registration.here_skills)
@@ -123,7 +123,7 @@ async def profile(message: Message, repo: Repo, state: FSMContext):
 
     if not user or not user.is_completed_registration:
         await message.answer(
-            "Пройдите регистрацию, чтобы получить доступ к разделу \"Профиль\"",
+            "Пройдите регистрацию, чтобы получить доступ к разделу \"Профиль👤\"",
             reply_markup=get_registration_keyboard(),
         )
         return
@@ -154,12 +154,11 @@ async def settings_handler(message: Message, repo: Repo, state: FSMContext):
     )
 
 
-async def user_show_completed_deals(call: CallbackQuery, repo: Repo, state: FSMContext):
-    data = await state.get_data()
+async def user_show_completed_deals(call: CallbackQuery, repo: Repo):
     me = await repo.get_user_by_telegram_id(call.from_user.id)
     prev_val = me.show_completed_deals
 
-    user = await repo.update_user(telegram_id=me.telegram_id, show_completed_deals=not prev_val)
+    await repo.update_user(telegram_id=me.telegram_id, show_completed_deals=not prev_val)
     with suppress(BaseException):
         await call.message.edit_reply_markup(
             reply_markup=get_profile_settings_keyboard(not prev_val)
@@ -232,7 +231,7 @@ async def refill_here_pay(call: CallbackQuery, state: FSMContext):
 
     try:
         invoice = await crypto.create_invoice(data["amount"], data["curr"])
-    except CryptoPayAPIError | CodeErrorFactory as e:
+    except CryptoPayAPIError | CodeErrorFactory:
         await call.message.answer("Ошибка во время создания чека.")
         await state.finish()
         return
@@ -343,7 +342,7 @@ def register_user_profile_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(registration_here_price, Text(startswith="price"), state=Registration.here_price)
 
     # меню
-    dp.register_message_handler(profile, Text("Профиль"), state="*")
+    dp.register_message_handler(profile, Text("Профиль👤"), state="*")
     dp.register_message_handler(balance_handler, Text("Кошелек"), state="*")
     dp.register_message_handler(settings_handler, Text("Настройки"), state="*")
     dp.register_callback_query_handler(user_show_completed_deals, Text("user_completed_deals"), state="*")
@@ -358,4 +357,5 @@ def register_user_profile_handlers(dp: Dispatcher):
     # withdraw
     dp.register_callback_query_handler(withdraw, Text("withdraw"), state="*")
     dp.register_message_handler(withdraw_here_amount, state=Withdraw.here_amount)
-    dp.register_callback_query_handler(withdraw_here_crypto, Text(startswith="сhoose_сrypto"), state=Withdraw.here_crypto)
+    dp.register_callback_query_handler(withdraw_here_crypto, Text(startswith="сhoose_сrypto"),
+                                       state=Withdraw.here_crypto)

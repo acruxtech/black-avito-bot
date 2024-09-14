@@ -98,7 +98,7 @@ def get_registration_keyboard() -> types.ReplyKeyboardMarkup:
     keyboard.resize_keyboard = True
     keyboard.row_width = 1
     keyboard.add(
-        types.KeyboardButton(text="Начать регистрацию"),
+        types.KeyboardButton(text="Начать регистрацию🚀"),
     )
     return keyboard
 
@@ -107,9 +107,9 @@ def get_start_keyboard() -> types.ReplyKeyboardMarkup:
     keyboard = types.ReplyKeyboardMarkup()
     keyboard.resize_keyboard = True
     buttons = [
-        types.KeyboardButton(text="Профиль"),
+        types.KeyboardButton(text="Профиль👤"),
         types.KeyboardButton(text="Услуги"),
-        types.KeyboardButton(text="Гарант"),
+        types.KeyboardButton(text="Сделки"),
         types.KeyboardButton(text="Поддержка"),
     ]
     keyboard.row_width = 2
@@ -146,8 +146,8 @@ def get_balance_keyboard() -> types.InlineKeyboardMarkup:
 
 def get_user_type_keyboard() -> types.ReplyKeyboardMarkup:
     buttons = [
-        types.KeyboardButton(text="Заказчик"),
-        types.KeyboardButton(text="Исполнитель"),
+        types.KeyboardButton(text="Заказчик🛍️"),
+        types.KeyboardButton(text="Исполнитель👩‍💼"),
     ]
     keyboard = types.ReplyKeyboardMarkup()
     keyboard.resize_keyboard = True

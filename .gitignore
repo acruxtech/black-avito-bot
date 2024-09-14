@@ -160,3 +160,19 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+/.idea/.gitignore
+/migrations/versions/7c96fe72e191_add_price_field.py
+/migrations/versions/09bd832c36ff_initial.py
+/migrations/versions/7715f1741a75_add_is_completed_registration.py
+/migrations/versions/8848a62f3b97_add_nullable_prop.py
+/alembic.ini
+/config.ini
+/migrations/versions/e5a31bc02be9_add_show_deals_field.py
+/.idea/material_theme_project_new.xml
+/.idea/misc.xml
+/.idea/modules.xml
+/.idea/inspectionProfiles/profiles_settings.xml
+/migrations/script.py.mako
+/.idea/search_people_bot.iml
+/.idea/vcs.xml
+/migrations/

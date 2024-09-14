@@ -10,8 +10,8 @@ TEXTS = {
 
     "deal_info": """
 <b>id:</b> <code>{id}</code> ({is_confirmed_by_executor})
-<b>Заказчик:</b> <code>{client_id}</code>
-<b>Исполнитель:</b> <code>{executor_id}</code> 
+<b>Заказчик🛍️:</b> <code>{client_id}</code>
+<b>Исполнитель👩‍💼:</b> <code>{executor_id}</code> 
 
 <b>Сумма:</b> ${amount}
 <b>Условия:</b>
