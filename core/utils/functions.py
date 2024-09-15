@@ -10,7 +10,8 @@ from core.utils.variables import bot
 logger = logging.getLogger(__name__)
 
 
-def get_user_repr(user=None, user_id: int | str = None, job: str = None, price: int = None, skills: str = None):
+def get_user_repr(user=None, user_id: int | str = None, job: str = None, price: int = None, skills: str = None,
+                  rating: float | int = None):
     if user:
         user_id = user.id
         job = user.job.title
@@ -19,7 +20,9 @@ def get_user_repr(user=None, user_id: int | str = None, job: str = None, price: 
     text = (f"<b>id</b>: <code>{user_id}</code>\n\n"
             f"<b>Направление</b>: {job}\n"
             f"<b>Ценовая категория</b>: {'$' * (price + 1)}\n"
-            f"<b>Описание услуги</b>: {skills}")
+            f"<b>Описание услуги</b>: {skills}\n"
+            f"<b>Средняя оценка</b>: {round(rating, 1)}"
+            )
     return text
 
 

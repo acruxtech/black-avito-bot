@@ -50,3 +50,4 @@ class Deal(BaseCommon):
     amount = Column(Integer)
     conditions = Column(Text)
     is_completed = Column(Boolean, default=False)
+    rating = Column(Integer, nullable=True)     # от 1 до 5

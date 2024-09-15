@@ -323,6 +323,17 @@ def get_tip_keyboard(executor_id: int) -> types.InlineKeyboardMarkup:
     return keyboard
 
 
+def get_rating_keyboard(deal_id: int) -> types.InlineKeyboardMarkup:
+    buttons = [
+        types.InlineKeyboardButton(text=str(i), callback_data=f"rating_{i}_{deal_id}")
+        for i in range(1, 6)
+    ]
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.row_width = 1
+    keyboard.add(*buttons)
+    return keyboard
+
+
 def get_scroll_keyboard(
         back: str = "",
         additional_button: types.InlineKeyboardButton = None,

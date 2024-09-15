@@ -5,6 +5,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
 
+from core.states.Rating import Rating
 from core.states.Tip import Tip
 from core.utils.constants import PRICE_MAPPER, FEE, TEXTS
 from core.utils.functions import get_user_repr
@@ -63,8 +64,10 @@ async def rialto_here_price(call: CallbackQuery, repo: Repo, state: FSMContext):
     if not users:
         await call.message.answer("Доступных предложений в этом разделе и в этой ценовой категории нет.")
         return
+    deals = await repo.get_user_executor_completed_deals(users[0].id)
     await call.message.answer(
-        text=f"Предложение 1/{len(users)}\n\n" + get_user_repr(users[0]),
+        text=f"Предложение 1/{len(users)}\n\n" +
+             get_user_repr(users[0], rating=sum(deal.rating for deal in deals) / len(deals)),
         parse_mode="html",
         reply_markup=get_scroll_keyboard(
             additional_button=types.InlineKeyboardButton(text="Создать сделку",
@@ -364,14 +367,28 @@ async def approve_end_deal(call: CallbackQuery, repo: Repo, state: FSMContext):
     await call.bot.send_message(
         chat_id=executor.telegram_id,
         text=f"Клиент подтвердил завершение сделки (id <code>{deal.id}</code>)\n"
-             "Деньги переведны вам на счет",
+             "Деньги переведены вам на счет",
         parse_mode="html",
     )
     await call.message.answer(
         "Сделка завершена. Деньги отправлены на счет исполнителя.",
         reply_markup=get_tip_keyboard(deal.executor_id),
     )
+    await call.message.answer(
+        "Оцените работу исполнителя от 1 до 5, нажав кнопку ниже (1 - плохо, 5 - хорошо)",
+        reply_markup=get_rating_keyboard(deal.id)
+    )
+    await state.set_state(Rating.here_rate)
+
+
+async def rating_here_rate(call: CallbackQuery, repo: Repo, state: FSMContext):
+    await call.answer()
     await state.finish()
+    _, rate, deal_id = call.data.split("_")
+    if not (1 <= rate <= 5):
+        return
+    await repo.update_deal(int(deal_id), rating=int(rate))
+    await call.message.answer("Спасибо! Оценка поставлена исполнителю")
 
 
 async def support_deal(call: CallbackQuery, state: FSMContext):
@@ -444,6 +461,7 @@ def register_user_rialto_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(deal_callback, Text(startswith="deal"), state="*")
     dp.register_callback_query_handler(end_deal, Text(startswith="end_deal"), state="*")
     dp.register_callback_query_handler(approve_end_deal, Text(startswith="approve_end_deal"), state="*")
+    dp.register_callback_query_handler(rating_here_rate, Text(startswith="rating"), state=Rating.here_rate)
     dp.register_callback_query_handler(support_deal, Text(startswith="support_deal"), state="*")
     dp.register_callback_query_handler(tip, Text(startswith="tip"), state="*")
     dp.register_message_handler(tip_here_amount, state=Tip.here_amount)

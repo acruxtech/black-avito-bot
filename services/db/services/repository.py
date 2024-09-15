@@ -128,6 +128,12 @@ class Repo:
         await self.conn.commit()
         return user
 
+    async def get_users_usernames(self) -> list[str]:
+        res = await self.conn.execute(
+            select(User.username)
+        )
+        return res.scalars().all()
+
     async def get_users_where(self, **kwargs) -> list[User] | None:
         res = await self.conn.execute(
             select(User)
@@ -231,6 +237,19 @@ class Repo:
 
         return res.scalars().all()
 
+
+    async def get_user_executor_completed_deals(self, user_id: int) -> list[Deal]:
+        res = await self.conn.execute(
+            select(Deal).where(
+                and_(
+                    Deal.executor_id == user_id,
+                    Deal.is_completed == True,
+                )
+            )
+        )
+
+        return res.scalars().all()
+
     async def update_deal(self, deal_id: int, **kwargs) -> Deal | None:
         deal = await self.get_deal_by_id(deal_id)
         if not deal:
@@ -242,9 +261,3 @@ class Repo:
             setattr(deal, key, value)
         await self.conn.commit()
         return deal
-
-    async def get_users_usernames(self) -> list[str]:
-        res = await self.conn.execute(
-            select(User.username)
-        )
-        return res.scalars().all()
