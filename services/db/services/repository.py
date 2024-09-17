@@ -4,6 +4,7 @@ from sqlalchemy import select, delete, and_, update, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from assets.misc import generate_name
 from services.db.models import User, Job, Deal
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class Repo:
         user = User(
             telegram_id=telegram_id,
             username=username,
+            name=generate_name(),
             is_tg_premium=is_tg_premium,
             role=role,
         )
@@ -92,6 +94,14 @@ class Repo:
     async def get_user_by_telegram_id(self, telegram_id: int) -> User | None:
         res = await self.conn.execute(
             select(User).options(selectinload(User.job)).where(User.telegram_id == telegram_id)
+        )
+
+        return res.scalars().first()
+
+
+    async def get_user_by_name(self, name: str) -> User | None:
+        res = await self.conn.execute(
+            select(User).options(selectinload(User.job)).where(User.name == name)
         )
 
         return res.scalars().first()
@@ -236,7 +246,6 @@ class Repo:
         )
 
         return res.scalars().all()
-
 
     async def get_user_executor_completed_deals(self, user_id: int) -> list[Deal]:
         res = await self.conn.execute(

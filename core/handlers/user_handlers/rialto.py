@@ -8,7 +8,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
 from core.states.Rating import Rating
 from core.states.Tip import Tip
 from core.utils.constants import PRICE_MAPPER, FEE, TEXTS
-from core.utils.functions import get_user_repr
+from core.utils.functions import get_user_repr, get_user_rating
 from services.db.services.repository import Repo
 from config import load_config
 from core.states.CreateDeal import CreateDeal
@@ -66,8 +66,7 @@ async def rialto_here_price(call: CallbackQuery, repo: Repo, state: FSMContext):
         return
     deals = await repo.get_user_executor_completed_deals(users[0].id)
     await call.message.answer(
-        text=f"Предложение 1/{len(users)}\n\n" +
-             get_user_repr(users[0], rating=sum(deal.rating for deal in deals) / len(deals)),
+        text=f"Предложение 1/{len(users)}\n\n" + get_user_repr(users[0], rating=get_user_rating(deals)),
         parse_mode="html",
         reply_markup=get_scroll_keyboard(
             additional_button=types.InlineKeyboardButton(text="Создать сделку",
@@ -85,8 +84,9 @@ async def user_info(call: CallbackQuery, repo: Repo, state: FSMContext):
     user_number = int(call.data.split("_")[-1])
 
     user = await repo.get_user_by_id(user_ids[user_number])
+    deals = await repo.get_user_executor_completed_deals(user_ids[user_number])
     await call.message.edit_text(
-        text=f"Предложение {user_number + 1}/{len(user_ids)}\n\n" + get_user_repr(user),
+        text=f"Предложение {user_number + 1}/{len(user_ids)}\n\n" + get_user_repr(user, rating=get_user_rating(deals)),
         parse_mode="html",
         reply_markup=get_scroll_keyboard(
             back=f"user_{user_number - 1}" if user_number > 0 else None,
@@ -108,24 +108,19 @@ async def guarantee(message: Message, state: FSMContext):
 async def create_deal(call: CallbackQuery, state: FSMContext):
     await call.answer()
 
-    await call.message.answer("Отправьте id человека, с которым хотите заключить сделку")
+    await call.message.answer("Отправьте никнейм человека, с которым хотите заключить сделку")
     await state.set_state(CreateDeal.here_executor_id)
 
 
 async def create_deal_here_executor_id(message: Message, repo: Repo, state: FSMContext):
-    try:
-        executor_id = int(message.text)
-    except ValueError:
-        return await message.answer("ID должен быть числом")
-
-    executor = await repo.get_user_by_id(executor_id)
+    executor = await repo.get_user_by_name(message.text)
     if not executor:
-        return await message.answer("Этого пользователя нет в боте. Убедитесь, что вы правильно ввели id")
+        return await message.answer("Этого пользователя нет в боте. Убедитесь, что вы правильно ввели никнейм")
 
     if executor.is_bot_blocked:
         return await message.answer("Этот пользователь заблокировал бота.")
 
-    await state.update_data(executor_id=executor_id)
+    await state.update_data(executor_id=executor.id)
 
     await message.answer(
         "Хорошо. Отправьте сумму сделки в $. Она будет заморожена на вашем счете "
@@ -175,14 +170,14 @@ async def create_deal_here_conditions(message: Message, repo: Repo, state: FSMCo
     await state.update_data(conditions=message.parse_entities(as_html=True))
     data = await state.get_data()
     client = await repo.get_user_by_telegram_id(message.from_id)
-
+    executor = await repo.get_user_by_id(data["executor_id"])
     await message.answer("Ваша сделка:")
     await message.answer(
         text=TEXTS["deal_info"].format(
             id="создается",
             is_confirmed_by_executor="не подтверждена исполнителем",
-            client_id=client.id,
-            executor_id=data["executor_id"],
+            client_name=client.name,
+            executor_name=executor.name,
             amount=data["amount"],
             conditions=data["conditions"],
             is_completed="нет",
@@ -206,7 +201,7 @@ async def apply_creating_deal(call: CallbackQuery, repo: Repo, state: FSMContext
     )
     await call.bot.send_message(
         chat_id=executor.telegram_id,
-        text=f"Пользователь с id <code>{deal.client_id}</code> предлагает вам сделку. "
+        text=f"Пользователь с никнеймом <code>{client.name}</code> предлагает вам сделку. "
              "Подтвердите или отмените ее",
         parse_mode="html",
     )
@@ -215,8 +210,8 @@ async def apply_creating_deal(call: CallbackQuery, repo: Repo, state: FSMContext
         TEXTS["deal_info"].format(
             id=deal.id,
             is_confirmed_by_executor="не подтверждена исполнителем",
-            client_id=client.id,
-            executor_id=deal.executor_id,
+            client_name=client.name,
+            executor_name=executor.name,
             amount=deal.amount,
             conditions=deal.conditions,
             is_completed="нет",
@@ -232,7 +227,7 @@ async def apply_creating_deal(call: CallbackQuery, repo: Repo, state: FSMContext
 
 async def again_creating_deal(call: CallbackQuery, state: FSMContext):
     await call.answer()
-    await call.message.answer("Хорошо, начинаем процесс создания новой сделки. Отправьте id исполнителя")
+    await call.message.answer("Хорошо, начинаем процесс создания новой сделки. Отправьте никнейм исполнителя")
     await state.set_data({})
     await state.set_state(CreateDeal.here_executor_id)
 
@@ -296,14 +291,15 @@ async def deal_callback(call: CallbackQuery, repo: Repo, state: FSMContext):
     deal_id = call.data.split("_")[-1]
     deal = await repo.get_deal_by_id(int(deal_id))
     executor = await repo.get_user_by_id(deal.executor_id)
+    client = await repo.get_user_by_id(deal.client_id)
     me = await repo.get_user_by_telegram_id(call.from_user.id)
 
     await call.message.answer(
         TEXTS["deal_info"].format(
             id=deal.id,
             is_confirmed_by_executor=("не " if not deal.is_confirmed_by_executor else "") + "подтверждена исполнителем",
-            client_id=deal.client_id,
-            executor_id=deal.executor_id,
+            client_name=executor.name,
+            executor_name=client.name,
             amount=deal.amount,
             conditions=deal.conditions,
             is_completed="да" if deal.is_completed else "нет",
@@ -324,6 +320,7 @@ async def end_deal(call: CallbackQuery, repo: Repo, state: FSMContext):
     deal_id = int(call.data.split("_")[-1])
     deal = await repo.get_deal_by_id(deal_id)
     client = await repo.get_user_by_id(deal.client_id)
+    executor = await repo.get_user_by_id(deal.executor_id)
 
     await call.message.answer("Запрос на подтверждение завершения сделки отправлен клиенту. Ожидайте его решения")
 
@@ -337,8 +334,8 @@ async def end_deal(call: CallbackQuery, repo: Repo, state: FSMContext):
         text=TEXTS["deal_info"].format(
             id=deal.id,
             is_confirmed_by_executor=("не " if not deal.is_confirmed_by_executor else "") + "подтверждена исполнителем",
-            client_id=deal.client_id,
-            executor_id=deal.executor_id,
+            client_name=client.name,
+            executor_name=executor.name,
             amount=deal.amount,
             conditions=deal.conditions,
             is_completed="да" if deal.is_completed else "нет",

@@ -18,6 +18,7 @@ class User(BaseCommon):
     __tablename__ = "users"
 
     telegram_id = Column(BigInteger)
+    name = Column(Text)
     username = Column(Text)
     is_bot_blocked = Column(Boolean, default=False)
     is_completed_registration = Column(Boolean, default=False)

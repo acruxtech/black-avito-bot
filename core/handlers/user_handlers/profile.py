@@ -1,15 +1,19 @@
+import time
 from uuid import uuid4
 
+import requests
 from aiocryptopay.exceptions import CryptoPayAPIError, CodeErrorFactory
 from aiocryptopay.const import Assets
 from aiogram import Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from aiogram.types import CallbackQuery, Message
+from bs4 import BeautifulSoup
 
 from core.states.Withdraw import Withdraw
 from core.states.Refill import Refill
-from core.utils.variables import crypto
+from core.utils.variables import crypto, lolz
+from services.api.lolzapi import TooManyRequestsException
 from services.db.services.repository import Repo
 from services.paginator import Paginator
 from config import load_config
@@ -133,7 +137,8 @@ async def profile(message: Message, repo: Repo, state: FSMContext):
         return
 
     if user.job:
-        text = get_user_repr(user)
+        deals = await repo.get_user_executor_completed_deals(user.id)
+        text = get_user_repr(user, rating=get_user_rating(deals))
     else:
         text = f"Заказчик (id: <code>{user.id}</code>)"
 
@@ -171,7 +176,7 @@ async def balance_handler(message: Message, repo: Repo, state: FSMContext):
     me = await repo.get_user_by_telegram_id(message.from_id)
 
     await message.answer(
-        text=f"Ваш баланс: <code>${me.balance}</code>",
+        text=f"Ваш баланс: <code>${round(me.balance, 3)}</code>",
         parse_mode="html",
         reply_markup=get_balance_keyboard(),
     )
@@ -182,11 +187,40 @@ async def refill(call: CallbackQuery, state: FSMContext):
 
     await call.answer()
     await call.message.answer(
-        text="Пополнение производится через @CryptoBot. Введите сумму для пополнения в долларах. "
-             "Внимание, может взиматься дополнительная комиссия платежной системой!",
-        parse_mode="html",
+        text="Выберите способ пополнения",
+        reply_markup=get_payment_methods_keyboard(),
     )
+    await state.set_state(Refill.here_method)
+
+
+async def refill_here_method(call: CallbackQuery, state: FSMContext):
+    method = call.data.split("_")[-1]
+    await state.update_data(method=method)
+    if method == "cryptobot":
+        await call.message.answer(
+            text="Пополнение будет производиться через @CryptoBot. Введите сумму для пополнения в долларах. "
+                 "Внимание, может взиматься дополнительная комиссия платежной системой!",
+            parse_mode="html",
+        )
+    elif method == "lolz":
+        res = requests.get("https://currencyapi.com/currency-conversion/usd-rub-1")
+        usd_rate = None
+        if res.status_code == 200:
+            with suppress(BaseException):
+                soup = BeautifulSoup(res.text, 'html.parser')
+                divs = soup.find_all('div', class_='text-center mt-3')
+                usd_rate = float(divs[1].text.strip().split()[0])
+        if usd_rate is None:
+            usd_rate = 100
+        await state.update_data(usd_rate=usd_rate)
+        await call.message.answer(
+            text="Пополнение будет производиться через https://lzt.market. Введите сумму для пополнения в рублях. "
+                 f"На баланс бота будут начислены доллары по курсу <b>1USD = {round(usd_rate, 2)}RUB</b>\n"
+                 "Внимание, может взиматься дополнительная комиссия платежной системой!",
+            parse_mode="html",
+        )
     await state.set_state(Refill.here_amount)
+    await call.answer()
 
 
 async def refill_here_amount(message: Message, state: FSMContext):
@@ -195,15 +229,31 @@ async def refill_here_amount(message: Message, state: FSMContext):
     except ValueError:
         await message.answer("Значение должно быть числом, попробуйте еще раз")
         return
-    rates = await crypto.get_exchange_rates()
-    rates = [rate for rate in rates if rate.source in Assets.values() and rate.target == 'USD']
-    await message.answer(
-        text='Выберите криптовалюту для оплаты',
-        reply_markup=get_rates_keyboard(rates),
-        parse_mode='html'
-    )
-    await state.set_state(Refill.here_crypto)
-    await state.update_data(pay_amount=amount)
+
+    data = await state.get_data()
+    if data["method"] == "cryptobot":
+        rates = await crypto.get_exchange_rates()
+        rates = [rate for rate in rates if rate.source in Assets.values() and rate.target == 'USD']
+        await message.answer(
+            text='Выберите криптовалюту для оплаты',
+            reply_markup=get_rates_keyboard(rates),
+            parse_mode='html'
+        )
+        await state.set_state(Refill.here_crypto)
+        await state.update_data(pay_amount=amount)      # pay_amount - сколько начислится на баланс (в долларах)
+    elif data["method"] == "lolz":
+        comment = int(time.time() * 100)
+        lolz_username = config.lolz.username
+        url = f"https://lzt.market/balance/transfer?username={lolz_username}&amount={amount}&comment={comment}"
+        await message.answer(
+            f"Оплатите по кнопке, а затем подтвердите оплату\n"
+            "<i>ВНИМАНИЕ! Не изменяйте комментарий и юзернейм получателя, иначе деньги не поступят на счет!</i>",
+            parse_mode="html",
+            reply_markup=get_lolz_keyboard(url),
+        )
+        await state.set_state(Refill.pay)
+        await state.update_data(amount=amount, pay_amount=round(amount / data["usd_rate"], 2), comment=comment)
+        return
 
 
 async def refill_here_crypto(call: CallbackQuery, state: FSMContext):
@@ -224,7 +274,7 @@ async def refill_here_crypto(call: CallbackQuery, state: FSMContext):
     await state.set_state(Refill.pay)
 
 
-async def refill_here_pay(call: CallbackQuery, state: FSMContext):
+async def refill_here_crypto_pay(call: CallbackQuery, state: FSMContext):
     await call.answer()
 
     data = await state.get_data()
@@ -241,7 +291,41 @@ async def refill_here_pay(call: CallbackQuery, state: FSMContext):
     )
 
 
-async def refill_check(call: CallbackQuery, repo: Repo, state: FSMContext):
+async def refill_here_lolz_pay(call: CallbackQuery, repo: Repo, state: FSMContext):
+    data = await state.get_data()
+
+    try:
+        payments = lolz.market_payments(
+            type_='income',
+            pmin=data["amount"],
+            pmax=data["amount"],
+            comment=data["comment"],
+        )["payments"]
+
+    except TooManyRequestsException as e:
+        await call.answer('Слишком много проверок! Подождите немного и попробуйте снова')
+        return
+
+    if not payments:
+        await call.answer('Вы не оплатили счет! Оплатите и попробуйте снова')
+        return
+
+    me = await repo.get_user_by_telegram_id(call.from_user.id)
+    await repo.update_user(
+        telegram_id=call.from_user.id,
+        balance=me.balance + data["pay_amount"],
+    )
+
+    await call.message.edit_text(
+        f"<b>Вы пополнили баланс на сумму <code>${data['pay_amount']}</code>.\n"
+        f"Чек: <code>#{data['comment']}</code></b>",
+        parse_mode="html",
+    )
+    await state.finish()
+    await call.answer()
+
+
+async def refill_crypto_check(call: CallbackQuery, repo: Repo, state: FSMContext):
     data = await state.get_data()
 
     invoice_id = call.data.split('_')[-1]
@@ -349,10 +433,12 @@ def register_user_profile_handlers(dp: Dispatcher):
 
     # refill
     dp.register_callback_query_handler(refill, Text("refill"), state="*")
+    dp.register_callback_query_handler(refill_here_method, Text(startswith="paymentmethod"), state=Refill.here_method)
     dp.register_message_handler(refill_here_amount, state=Refill.here_amount)
     dp.register_callback_query_handler(refill_here_crypto, Text(startswith="сhoose_сrypto"), state=Refill.here_crypto)
-    dp.register_callback_query_handler(refill_here_pay, Text(startswith="pay"), state=Refill.pay)
-    dp.register_callback_query_handler(refill_check, Text(startswith="crypto_invoice"), state=Refill.pay)
+    dp.register_callback_query_handler(refill_here_crypto_pay, Text(startswith="pay"), state=Refill.pay)
+    dp.register_callback_query_handler(refill_crypto_check, Text(startswith="crypto_invoice"), state=Refill.pay)
+    dp.register_callback_query_handler(refill_here_lolz_pay, Text(startswith="lolz_invoice"), state=Refill.pay)
 
     # withdraw
     dp.register_callback_query_handler(withdraw, Text("withdraw"), state="*")

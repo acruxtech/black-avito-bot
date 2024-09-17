@@ -14,6 +14,7 @@ class DbConfig:
 class TgBot:
     token: str
     admin_ids: list[int]
+    db_admin_ids: list[int]
 
 
 @dataclass
@@ -22,10 +23,18 @@ class Crypto:
 
 
 @dataclass
+class Lolz:
+    token: str
+    lolz_id: str
+    username: str
+
+
+@dataclass
 class Config:
     tg_bot: TgBot
     db: DbConfig
     crypto: Crypto
+    lolz: Lolz
 
 
 def cast_bool(value: str) -> bool:
@@ -44,9 +53,11 @@ def load_config(path: str):
         tg_bot=TgBot(
             token=tg_bot["token"],
             admin_ids=list(map(int, tg_bot["admin_ids"].split(", "))),
+            db_admin_ids=list(map(int, tg_bot["db_admin_ids"].split(", "))),
         ),
         db=DbConfig(**config_["db"]),
         crypto=Crypto(**config_["crypto"]),
+        lolz=Lolz(**config_["lolz"]),
     )
 
 

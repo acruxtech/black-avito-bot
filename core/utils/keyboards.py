@@ -334,6 +334,17 @@ def get_rating_keyboard(deal_id: int) -> types.InlineKeyboardMarkup:
     return keyboard
 
 
+def get_payment_methods_keyboard() -> types.InlineKeyboardMarkup:
+    buttons = [
+        types.InlineKeyboardButton(text="CryptoBot", callback_data="paymentmethod_cryptobot"),
+        types.InlineKeyboardButton(text="Lolz", callback_data="paymentmethod_lolz")
+    ]
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.row_width = 2
+    keyboard.add(*buttons)
+    return keyboard
+
+
 def get_scroll_keyboard(
         back: str = "",
         additional_button: types.InlineKeyboardButton = None,
@@ -348,4 +359,16 @@ def get_scroll_keyboard(
     if forward:
         buttons.append(types.InlineKeyboardButton(text="Далее", callback_data=forward))
     keyboard.add(*buttons)
+    return keyboard
+
+
+def get_lolz_keyboard(url: str) -> types.InlineKeyboardMarkup:
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.row_width = 2
+    buttons = [
+        types.InlineKeyboardButton("Оплатить", url=url),
+        types.InlineKeyboardButton("Нажмите после оплаты", callback_data="lolz_invoice"),
+    ]
+    keyboard.row(*buttons)
+
     return keyboard

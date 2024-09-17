@@ -1,4 +1,8 @@
 FEE = 0.05
+TECH_WORK_START_HOUR = 0
+TECH_WORK_START_MINUTE = 0
+TECH_WORK_END_HOUR = 0
+TECH_WORK_END_MINUTE = 20
 
 PRICE_MAPPER = {"s": 0, "m": 1, "l": 2}
 
@@ -10,8 +14,8 @@ TEXTS = {
 
     "deal_info": """
 <b>id:</b> <code>{id}</code> ({is_confirmed_by_executor})
-<b>Заказчик🛍️:</b> <code>{client_id}</code>
-<b>Исполнитель👩‍💼:</b> <code>{executor_id}</code> 
+<b>Заказчик🛍️:</b> <code>{client_name}</code>
+<b>Исполнитель👩‍💼:</b> <code>{executor_name}</code> 
 
 <b>Сумма:</b> ${amount}
 <b>Условия:</b>

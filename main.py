@@ -14,9 +14,10 @@ from core.handlers.user import register_user
 from core.middlewares.db import DbMiddleware
 from core.middlewares.role import RoleMiddleware
 from core.middlewares.user_control import UserControlMiddleware
+from core.utils.functions import send_db_to_admin
 from core.utils.variables import scheduler, bot
 from services.db.db_pool import create_db_pool
-
+from services.db.services.repository import Repo
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +65,18 @@ async def main():
     dp.filters_factory.bind(AdminFilter)
 
     scheduler.start()
+    scheduler.add_job(
+        send_db_to_admin,
+        'cron',
+        day=1,
+        hour=0,
+        minute=0,
+        kwargs={
+            "bot": bot,
+            "repo": Repo(db_pool()),
+            "db_admin_ids": config.tg_bot.db_admin_ids,
+        }
+    )
 
     register_admin(dp)
     register_user(dp)

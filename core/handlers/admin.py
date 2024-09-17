@@ -166,13 +166,7 @@ async def cancel_mailing(callback: CallbackQuery):
 
 
 async def export(callback: CallbackQuery, state: FSMContext, repo: Repo):
-    with open("users.txt", "w") as f:
-        users_telegram_ids = await repo.get_users_telegram_ids()
-        users_ids = await repo.get_users_ids()
-        users_usernames = await repo.get_users_usernames()
-
-        for user_id, telegram_id, username in zip(users_ids, users_telegram_ids, users_usernames):
-            f.write(f"{user_id} - {telegram_id} - @{username}\n")
+    await get_db_file(repo)
 
     with open("users.txt", "r") as f:
         await callback.message.answer_document(f)
