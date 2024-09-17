@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 
 from aiogram import Dispatcher
@@ -411,6 +412,83 @@ async def user_action(call: CallbackQuery, repo: Repo):
         )
 
 
+async def cancel_deal(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("Отправьте id сделки")
+    await callback.answer()
+    await state.set_state(CancelDeal.here_id.state)
+
+
+async def cancel_deal_here_id(message: Message, state: FSMContext):
+    await state.update_data(deal_id=int(message.text))
+    await message.answer(
+        "Перевести замороженные средства исполнителю или вернуть на счет заказчика",
+        reply_markup=get_yes_no_keyboard("money_solution")
+    )
+    await state.set_state(CancelDeal.here_money_solution.state)
+
+
+async def cancel_deal_here_money_solution(call: CallbackQuery, repo: Repo, state: FSMContext):
+    money_solution = call.data.split("_")[-1]
+    await call.answer()
+
+    data = await state.get_data()
+    deal = await repo.get_deal_by_id(data["deal_id"])
+    await repo.update_deal(deal.id, is_completed=True)
+
+    if money_solution == "yes":
+        user = await repo.get_user_by_id(deal.executor_id)
+        client = await repo.get_user_by_id(deal.client_id)
+        with suppress(BaseException):
+            await call.bot.send_message(
+                user.telegram_id,
+                f"Сделка (id: {deal.id}) завершена администратором. Деньги переведены вам на счет"
+            )
+        with suppress(BaseException):
+            await call.bot.send_message(
+                client.telegram_id,
+                f"Сделка (id: {deal.id}) завершена администратором. Деньги переведены на счет исполнителя"
+            )
+    else:
+        user = await repo.get_user_by_id(deal.client_id)
+        executor = await repo.get_user_by_id(deal.executor_id)
+        with suppress(BaseException):
+            await call.bot.send_message(
+                user.telegram_id,
+                f"Сделка (id: {deal.id}) завершена администратором. Деньги возвращены вам на счет"
+            )
+        with suppress(BaseException):
+            await call.bot.send_message(
+                executor.telegram_id,
+                f"Сделка (id: {deal.id}) завершена администратором без перевода средств вам"
+            )
+    await repo.update_user(
+        telegram_id=user.telegram_id,
+        balance=user.balance + deal.amount,
+    )
+    await call.message.answer("Сделка завершена")
+    await state.finish()
+
+
+async def start_payment(call: CallbackQuery, state: FSMContext):
+    await call.answer()
+    await call.message.answer(
+        "Отправьте значение в $, которое необходимо будет платить для регистрации в качестве исполнителя. "
+        "Чтобы отключить стартовый взнос, введите 0",
+        parse_mode="html",
+    )
+    await state.set_state(StartPayment.here_amount.state)
+
+
+async def start_payment_here_amount(message: Message, state: FSMContext):
+    with open('settings.json', 'r') as file:
+        data = json.load(file)
+    data["start_payment"] = int(message.text)
+    with open('settings.json', 'w') as file:
+        json.dump(data, file)
+    await message.answer("Готово")
+    await state.finish()
+
+
 def register_admin(dp: Dispatcher):
     # base
     dp.register_message_handler(admin_menu, commands="admin", state="*", role=UserRole.OWNER)
@@ -450,10 +528,17 @@ def register_admin(dp: Dispatcher):
                                        role=UserRole.OWNER)
     dp.register_message_handler(user_message_here_text, state=UserSettings.here_message_text, role=UserRole.OWNER)
     dp.register_callback_query_handler(user_ban, Text("user_ban"), state=UserSettings.here_action, role=UserRole.OWNER)
+
+    dp.register_callback_query_handler(start_payment, Text("start_payment"), state="*", role=UserRole.OWNER)
+    dp.register_message_handler(start_payment_here_amount, state=StartPayment.here_amount, role=UserRole.OWNER)
     
     # deal
     dp.register_callback_query_handler(check_deal, Text("check_deal"), state="*", role=UserRole.OWNER)
     dp.register_message_handler(deal_here_id, state=DealSettings.here_id, role=UserRole.OWNER)
+    dp.register_callback_query_handler(cancel_deal, Text("cancel_deal"), state="*", role=UserRole.OWNER)
+    dp.register_message_handler(cancel_deal_here_id, state=CancelDeal.here_id, role=UserRole.OWNER)
+    dp.register_callback_query_handler(cancel_deal_here_money_solution, Text(startswith="money_solution"), state=CancelDeal.here_money_solution, role=UserRole.OWNER)
+
 
     # user apply
     dp.register_callback_query_handler(user_action, Text(startswith="new_user"), state="*", role=UserRole.OWNER)

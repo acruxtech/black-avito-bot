@@ -1,3 +1,4 @@
+import json
 import time
 from uuid import uuid4
 
@@ -35,6 +36,24 @@ async def registration(message: Message, state: FSMContext):
 
 async def registration_here_user_type(message: Message, repo: Repo, state: FSMContext):
     if message.text == "Исполнитель👩‍💼":
+        user = await repo.get_user_by_telegram_id(message.from_id)
+        with open('settings.json', 'r') as file:
+            data = json.load(file)
+        start_payment = data["start_payment"]
+        if start_payment > 0 and (user.is_paid is False or user.is_paid is None):
+            if user.balance < start_payment:
+                return await message.answer("Чтобы быть исполнителем необходимо внести единоразовый платеж. Он "
+                                            "списывается только один раз и нужен, чтобы удостовериться в серьезности"
+                                            "ваших намерений по использованию нашей платформы."
+                                            f"Зарегистрируйтесь в качестве исполнителя, "
+                                            f"пополните баланс на ${data['start_payment']} и попробуйте снова")
+            else:
+                await message.answer(
+                    "Чтобы быть исполнителем необходимо внести единоразовый платеж. Он "
+                    "списывается только один раз и нужен, чтобы удостовериться в серьезности"
+                    "ваших намерений по использованию нашей платформы."
+                    f"С вашего баланса списано ${data['start_payment']}. Можете продолжать регистрацию"
+                )
         jobs = await repo.get_jobs()
         paginator = Paginator(
             data=[
@@ -138,7 +157,11 @@ async def profile(message: Message, repo: Repo, state: FSMContext):
 
     if user.job:
         deals = await repo.get_user_executor_completed_deals(user.id)
-        text = get_user_repr(user, rating=get_user_rating(deals))
+        text = get_user_repr(
+            user,
+            rating=get_user_rating(deals),
+            summ=sum(deal.amount for deal in deals)
+        )
     else:
         text = f"Заказчик (id: <code>{user.id}</code>)"
 

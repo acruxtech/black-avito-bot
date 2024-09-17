@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_user_repr(user=None, user_name: int | str = None, job: str = None, price: int = None, skills: str = None,
-                  rating: float | int = None):
+                  rating: float | int = None, summ: float | int = 0):
     if user:
         user_name = user.name
         job = user.job.title
@@ -24,7 +24,8 @@ def get_user_repr(user=None, user_name: int | str = None, job: str = None, price
             f"<b>Направление</b>: {job}\n"
             f"<b>Ценовая категория</b>: {'$' * (price + 1)}\n"
             f"<b>Описание услуги</b>: {skills}\n"
-            f"<b>Средняя оценка</b>: {round(rating, 1) if rating else '-'}"
+            f"<b>Средняя оценка</b>: {round(rating, 1) if rating else '-'}\n"
+            f"<b>Общезаработанная сумма</b>: ${summ}\n"
             )
     return text
 

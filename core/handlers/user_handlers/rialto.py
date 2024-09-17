@@ -66,7 +66,12 @@ async def rialto_here_price(call: CallbackQuery, repo: Repo, state: FSMContext):
         return
     deals = await repo.get_user_executor_completed_deals(users[0].id)
     await call.message.answer(
-        text=f"Предложение 1/{len(users)}\n\n" + get_user_repr(users[0], rating=get_user_rating(deals)),
+        text=f"Предложение 1/{len(users)}\n\n" +
+        get_user_repr(
+            users[0],
+            rating=get_user_rating(deals),
+            summ=sum(deal.amount for deal in deals)
+        ),
         parse_mode="html",
         reply_markup=get_scroll_keyboard(
             additional_button=types.InlineKeyboardButton(text="Создать сделку",
@@ -86,7 +91,12 @@ async def user_info(call: CallbackQuery, repo: Repo, state: FSMContext):
     user = await repo.get_user_by_id(user_ids[user_number])
     deals = await repo.get_user_executor_completed_deals(user_ids[user_number])
     await call.message.edit_text(
-        text=f"Предложение {user_number + 1}/{len(user_ids)}\n\n" + get_user_repr(user, rating=get_user_rating(deals)),
+        text=f"Предложение {user_number + 1}/{len(user_ids)}\n\n" +
+        get_user_repr(
+            user,
+            rating=get_user_rating(deals),
+            summ=sum(deal.amount for deal in deals)
+        ),
         parse_mode="html",
         reply_markup=get_scroll_keyboard(
             back=f"user_{user_number - 1}" if user_number > 0 else None,

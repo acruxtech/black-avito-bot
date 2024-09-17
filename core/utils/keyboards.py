@@ -31,6 +31,8 @@ def get_settings_keyboard() -> types.InlineKeyboardMarkup:
     buttons = [
         types.InlineKeyboardButton(text="Виды деятельности", callback_data="job_settings"),
         types.InlineKeyboardButton(text="Посмотреть сделку по id", callback_data="check_deal"),
+        types.InlineKeyboardButton(text="Отменить сделку", callback_data="cancel_deal"),
+        types.InlineKeyboardButton(text="Изменить стартовый взнос", callback_data="start_payment"),
     ]
     keyboard = types.InlineKeyboardMarkup()
     keyboard.row_width = 1
@@ -368,6 +370,18 @@ def get_lolz_keyboard(url: str) -> types.InlineKeyboardMarkup:
     buttons = [
         types.InlineKeyboardButton("Оплатить", url=url),
         types.InlineKeyboardButton("Нажмите после оплаты", callback_data="lolz_invoice"),
+    ]
+    keyboard.row(*buttons)
+
+    return keyboard
+
+
+def get_yes_no_keyboard(callback: str) -> types.InlineKeyboardMarkup:
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.row_width = 1
+    buttons = [
+        types.InlineKeyboardButton("Перевести исполнителю", callback_data=f"{callback}_yes"),
+        types.InlineKeyboardButton("Вернуть заказчику", callback_data=f"{callback}_no"),
     ]
     keyboard.row(*buttons)
 

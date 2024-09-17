@@ -29,3 +29,12 @@ class Mailing(StatesGroup):
     here_time = State()
     forward_post = State()
     apply = State()
+
+
+class CancelDeal(StatesGroup):
+    here_id = State()
+    here_money_solution = State()
+
+
+class StartPayment(StatesGroup):
+    here_amount = State()

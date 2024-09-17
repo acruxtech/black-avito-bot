@@ -23,6 +23,7 @@ class User(BaseCommon):
     is_bot_blocked = Column(Boolean, default=False)
     is_completed_registration = Column(Boolean, default=False)
     is_tg_premium = Column(Boolean)
+    is_paid = Column(Boolean, nullable=True)
     role = Column(Integer)
     balance = Column(Float, default=0)
     is_shadow_ban = Column(Boolean, default=False)
