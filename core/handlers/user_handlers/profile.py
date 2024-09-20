@@ -1,5 +1,6 @@
 import json
 import time
+import datetime
 from uuid import uuid4
 
 import requests
@@ -14,7 +15,7 @@ from bs4 import BeautifulSoup
 from core.states.Profile import Profile
 from core.states.Withdraw import Withdraw
 from core.states.Refill import Refill
-from core.utils.variables import crypto, lolz
+from core.utils.variables import crypto, lolz, scheduler
 from services.api.lolzapi import TooManyRequestsException
 from services.db.services.repository import Repo
 from services.paginator import Paginator
@@ -202,6 +203,19 @@ async def approve_promote_profile(call: CallbackQuery, repo: Repo, state: FSMCon
     data = await state.get_data()
     await repo.update_user(user_id=user.id, priority=user.priority + 1, balance=user.balance - data["summ"])
     await call.message.answer("Отлично! Теперь ваша анкета лучше продвигается")
+
+    scheduler.add_job(
+        repo.update_user,
+        "date",
+        kwargs={
+            "telegram_id": user.telegram_id,
+            "priority": user.priority - 1,
+        },
+        next_run_time=datetime.datetime.now() + datetime.timedelta(days=30),
+        misfire_grace_time=86400,
+        coalesce=True,
+    )
+
     await state.finish()
 
 
@@ -226,6 +240,17 @@ async def approve_highlight_profile(call: CallbackQuery, repo: Repo, state: FSMC
     data = await state.get_data()
     await repo.update_user(user_id=user.id, is_highlight=True, balance=user.balance - HIGHLIGHT_PRICE)
     await call.message.answer("Отлично! Теперь ваша анкета лучше видна")
+    scheduler.add_job(
+        repo.update_user,
+        "date",
+        kwargs={
+            "telegram_id": user.telegram_id,
+            "is_highlight": False,
+        },
+        next_run_time=datetime.datetime.now() + datetime.timedelta(days=30),
+        misfire_grace_time=86400,
+        coalesce=True,
+    )
     await state.finish()
 
 
