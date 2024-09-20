@@ -8,6 +8,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import CallbackQuery, Message, ParseMode
 from aiogram.utils.exceptions import BadRequest
 
+from core.models.AnonChat import AnonChat
 from core.states.Anon import Anon
 from services.db.services.repository import Repo
 from services.paginator import Paginator
@@ -28,13 +29,22 @@ async def chat(message: Message, repo: Repo, state: FSMContext):
         return await message.answer("Непрочитанных сообщений нет")
 
     chats = []
+    handled_ids = []
     for unread_message in unread_messages:
-        from_user = await repo.get_user_by_id(unread_message.from_telegram_id)
-        chats.append([
-            from_user.name,
-            from_user.id,
-            len([unread_message for unread_message in unread_messages if unread_message.from_telegram_id == from_user.id])
-        ])
+        if unread_message.from_telegram_id in handled_ids:
+            continue
+        from_user = await repo.get_user_by_telegram_id(unread_message.from_telegram_id)
+        chats.append(
+            AnonChat(
+                from_user.id,
+                from_user.name,
+                len([
+                    unread_message for unread_message in unread_messages
+                    if unread_message.from_telegram_id == from_user.telegram_id
+                ])
+            )
+        )
+        handled_ids.append(unread_message.from_telegram_id)
 
     await message.answer("У вас есть сообщения с:", reply_markup=get_unread_message_keyboard(chats))
 
@@ -54,22 +64,8 @@ async def anon(call: CallbackQuery, repo: Repo, state: FSMContext):
 
 async def anon_here_message(message: Message, repo: Repo, state: FSMContext):
     data = await state.get_data()
-    is_first_msg = data.get("is_first_msg", True)
     try:
-        if is_first_msg:
-            await message.bot.send_message(
-                chat_id=data["to_telegram_id"],
-                text=f"Новое сообщение от пользователя <code>{data['me_id']}</code>",
-                parse_mode="html",
-                reply_markup=get_start_chat_keyboard(data['me_id']),
-            )
-            await state.update_data(is_first_msg=False)
-
-        await message.bot.copy_message(
-            chat_id=data["to_telegram_id"],
-            from_chat_id=message.chat.id,
-            message_id=message.message_id,
-        )
+        await repo.add_unread_message(message.from_user.id, data["to_telegram_id"], message.message_id)
         to_user = await repo.get_user_by_telegram_id(data["to_telegram_id"])
         from_user = await repo.get_user_by_telegram_id(message.from_user.id)
         names = [to_user.name, from_user.name]
@@ -120,7 +116,17 @@ async def start_chat(call: CallbackQuery, repo: Repo, state: FSMContext):
     await call.answer()
     await call.message.answer(text="Чат начат. Можете отправлять сообщения. Затем нажмите кнопку завершения диалога "
                                    "или войдите в другой раздел",
-                                   reply_markup=get_cancel_keyboard("anon", "Завершить чат"))
+                              reply_markup=get_cancel_keyboard("anon", "Завершить чат"))
+
+    unread_messages = await repo.get_user_unread_messages(call.from_user.id)
+    for unread_message in unread_messages:
+        await call.bot.copy_message(
+            chat_id=call.from_user.id,
+            from_chat_id=unread_message.from_telegram_id,
+            message_id=unread_message.message_id,
+        )
+        await repo.delete_unread_message(unread_message.message_id)
+
     await state.update_data(to_telegram_id=to_user.telegram_id, me_id=me.id)
     await state.set_state(Anon.here_message)
 
@@ -133,4 +139,3 @@ def register_user_anon_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(cancel_anon, Text(startswith="cancel_anon"), state=Anon.here_message)
 
     dp.register_callback_query_handler(start_chat, Text(startswith="start_chat"), state="*")
-

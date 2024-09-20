@@ -1,5 +1,6 @@
 from aiogram import types
 
+from core.models.AnonChat import AnonChat
 from services.db.models import Deal
 
 
@@ -416,13 +417,10 @@ def get_highlight_keyboard() -> types.InlineKeyboardMarkup:
     return keyboard
 
 
-def get_unread_message_keyboard(chats: list[list[str, str, int]]) -> types.InlineKeyboardMarkup:
-    """
-    list of chats -> [<username>, <user_id>, <amount_unread_messages>]
-    """
+def get_unread_message_keyboard(chats: list[AnonChat]) -> types.InlineKeyboardMarkup:
     buttons = [
-        types.InlineKeyboardButton(text=f"{chats[0]} (непрочитанных сообщений: {chats[2]})",
-                                   callback_data=f"start_chat_")
+        types.InlineKeyboardButton(text=f"{chat.from_user_name} (непрочитанных: {chat.amount_unreads})",
+                                   callback_data=f"start_chat_{chat.from_user_telegram_id}")
         for chat in chats
     ]
     keyboard = types.InlineKeyboardMarkup()
