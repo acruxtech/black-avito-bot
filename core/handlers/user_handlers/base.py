@@ -56,4 +56,4 @@ def register_user_base_handlers(dp: Dispatcher):
     dp.register_message_handler(menu, Text("⬅️Назад"), state="*")
     dp.register_message_handler(start, commands=["start"], state="*")
 
-    dp.register_message_handler(support, Text("Поддержка"), state="*")
+    dp.register_message_handler(support, Text("Поддержка📞"), state="*")

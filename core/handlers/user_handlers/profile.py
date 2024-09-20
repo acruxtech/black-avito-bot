@@ -11,6 +11,7 @@ from aiogram.dispatcher.filters import Text
 from aiogram.types import CallbackQuery, Message
 from bs4 import BeautifulSoup
 
+from core.states.Profile import Profile
 from core.states.Withdraw import Withdraw
 from core.states.Refill import Refill
 from core.utils.variables import crypto, lolz
@@ -35,7 +36,7 @@ async def registration(message: Message, state: FSMContext):
 
 
 async def registration_here_user_type(message: Message, repo: Repo, state: FSMContext):
-    if message.text == "Исполнитель👩‍💼":
+    if message.text == "Исполнитель🤝":
         user = await repo.get_user_by_telegram_id(message.from_id)
         with open('settings.json', 'r') as file:
             data = json.load(file)
@@ -78,7 +79,7 @@ async def registration_here_user_type(message: Message, repo: Repo, state: FSMCo
             is_completed_registration=True,
             is_shadow_ban=True,
         )
-        await message.answer("Регистрация завершена. Можете искать объявления в разделе 'Услуги'. Сменить роль на "
+        await message.answer("Регистрация завершена. Можете искать объявления в разделе 'Услуги💼'. Сменить роль на "
                              "'Исполнитель' можно позднее в разделе 'Профиль👤'",
                              reply_markup=get_empty_keyboard())
         await state.finish()
@@ -163,13 +164,69 @@ async def profile(message: Message, repo: Repo, state: FSMContext):
             summ=sum(deal.amount for deal in deals)
         )
     else:
-        text = f"Заказчик (id: <code>{user.id}</code>)"
+        text = f"Заказчик (никнейм: <code>{user.name}</code>)"
 
     await message.answer(
         text=text,
-        reply_markup=get_profile_keyboard(),
+        reply_markup=get_profile_keyboard(user.job is not None, user.is_highlight),
         parse_mode="html",
     )
+
+
+async def promote_profile(message: Message, repo: Repo, state: FSMContext):
+    me = await repo.get_user_by_telegram_id(message.from_id)
+    competitors = await repo.get_users_where(
+        job_id=int(me.job_id),
+        price=me.price,
+        is_shadow_ban=False,
+    )
+    max_priority = max(competitor.priority for competitor in competitors)
+    summ = round(START_BET ** (max_priority + 1), 2)
+    if summ < me.balance:
+        await message.answer(
+            f"Необходимо ${summ}. Списать с баланса и продвинуть анкету?",
+            reply_markup=get_promote_keyboard(),
+        )
+        await state.set_state(Profile.promote)
+        await state.update_data(summ=summ)
+    else:
+        return await message.answer(
+            f"Необходимо ${summ}. На балансе недостаточно средств. Пополните и попробуйте еще раз",
+        )
+
+
+async def approve_promote_profile(call: CallbackQuery, repo: Repo, state: FSMContext):
+    await call.answer()
+
+    user = await repo.get_user_by_telegram_id(call.from_user.id)
+    data = await state.get_data()
+    await repo.update_user(user_id=user.id, priority=user.priority + 1, balance=user.balance - data["summ"])
+    await call.message.answer("Отлично! Теперь ваша анкета лучше продвигается")
+    await state.finish()
+
+
+async def highlight_profile(message: Message, repo: Repo, state: FSMContext):
+    me = await repo.get_user_by_telegram_id(message.from_id)
+    if HIGHLIGHT_PRICE < me.balance:
+        await message.answer(
+            f"Необходимо ${HIGHLIGHT_PRICE}. Списать с баланса и выделить анкету?",
+            reply_markup=get_highlight_keyboard(),
+        )
+        await state.set_state(Profile.highlight)
+    else:
+        return await message.answer(
+            f"Необходимо ${HIGHLIGHT_PRICE}. На балансе недостаточно средств. Пополните и попробуйте еще раз",
+        )
+
+
+async def approve_highlight_profile(call: CallbackQuery, repo: Repo, state: FSMContext):
+    await call.answer()
+
+    user = await repo.get_user_by_telegram_id(call.from_user.id)
+    data = await state.get_data()
+    await repo.update_user(user_id=user.id, is_highlight=True, balance=user.balance - HIGHLIGHT_PRICE)
+    await call.message.answer("Отлично! Теперь ваша анкета лучше видна")
+    await state.finish()
 
 
 async def settings_handler(message: Message, repo: Repo, state: FSMContext):
@@ -177,7 +234,7 @@ async def settings_handler(message: Message, repo: Repo, state: FSMContext):
     me = await repo.get_user_by_telegram_id(message.from_id)
 
     await message.answer(
-        text="Настройки",
+        text="Настройки⚙️",
         reply_markup=get_profile_settings_keyboard(me.show_completed_deals),
     )
 
@@ -442,7 +499,7 @@ async def withdraw_here_crypto(call: CallbackQuery, state: FSMContext):
 
 def register_user_profile_handlers(dp: Dispatcher):
     # регистрация
-    dp.register_message_handler(registration, Text(["Начать регистрацию", "Пройти регистрацию снова"]), state="*")
+    dp.register_message_handler(registration, Text(["Начать регистрацию📝", "Пройти регистрацию снова🔄"]), state="*")
     dp.register_message_handler(registration_here_user_type, state=Registration.here_user_type)
     dp.register_callback_query_handler(registration_here_job, Text(startswith="job"), state=Registration.here_job)
     dp.register_message_handler(registration_here_skills, state=Registration.here_skills)
@@ -450,9 +507,13 @@ def register_user_profile_handlers(dp: Dispatcher):
 
     # меню
     dp.register_message_handler(profile, Text("Профиль👤"), state="*")
-    dp.register_message_handler(balance_handler, Text("Кошелек"), state="*")
-    dp.register_message_handler(settings_handler, Text("Настройки"), state="*")
+    dp.register_message_handler(balance_handler, Text("Кошелек💳"), state="*")
+    dp.register_message_handler(settings_handler, Text("Настройки⚙️"), state="*")
     dp.register_callback_query_handler(user_show_completed_deals, Text("user_completed_deals"), state="*")
+    dp.register_message_handler(promote_profile, Text("Продвигать анкету📈"), state="*")
+    dp.register_callback_query_handler(approve_promote_profile, Text("promote_profile"), state=Profile.promote)
+    dp.register_message_handler(highlight_profile, Text("Выделить анкету✨"), state="*")
+    dp.register_callback_query_handler(approve_highlight_profile, Text("highlight_profile"), state=Profile.highlight)
 
     # refill
     dp.register_callback_query_handler(refill, Text("refill"), state="*")

@@ -60,13 +60,14 @@ async def rialto_here_price(call: CallbackQuery, repo: Repo, state: FSMContext):
         price=PRICE_MAPPER[price],
         is_shadow_ban=False,
     )
-    await state.update_data(user_ids=[user.id for user in users])
     if not users:
         await call.message.answer("Доступных предложений в этом разделе и в этой ценовой категории нет.")
         return
+    users.sort(key=lambda user: user.priority, reverse=True)
+    await state.update_data(user_ids=[user.id for user in users])
     deals = await repo.get_user_executor_completed_deals(users[0].id)
     await call.message.answer(
-        text=f"Предложение 1/{len(users)}\n\n" +
+        text=f"Предложение 1/{len(users)}\n\n" if not users[0].is_highlight else f"<b><i>Предложение 1/{len(users)}</i></b>\n\n" +
         get_user_repr(
             users[0],
             rating=get_user_rating(deals),
@@ -91,7 +92,7 @@ async def user_info(call: CallbackQuery, repo: Repo, state: FSMContext):
     user = await repo.get_user_by_id(user_ids[user_number])
     deals = await repo.get_user_executor_completed_deals(user_ids[user_number])
     await call.message.edit_text(
-        text=f"Предложение {user_number + 1}/{len(user_ids)}\n\n" +
+        text=f"Предложение {user_number + 1}/{len(user_ids)}\n\n" if not user.is_highlight else f"<b><i>Предложение {user_number + 1}/{len(user_ids)}</i></b>\n\n" +
         get_user_repr(
             user,
             rating=get_user_rating(deals),
@@ -288,9 +289,24 @@ async def my_deals(call: CallbackQuery, repo: Repo, state: FSMContext):
     deals = await repo.get_user_deals(me.id)
     if not me.show_completed_deals:
         deals = [deal for deal in deals if not deal.is_completed]
+
+    await state.set_state(Rialto.swap_deals)
+    paginator = Paginator(
+        data=[
+            [InlineKeyboardButton(
+                text=f"id: {deal.id} ({'в работе' if not deal.is_completed else 'завершена'})",
+                callback_data=f"deal_{deal.id}")
+            ]
+            for deal in deals
+        ],
+        dp=Dispatcher.get_current(),
+        state=Rialto.swap_deals,
+        size=10,
+    )
+
     await call.message.answer(
         text="Ваши сделки:",
-        reply_markup=get_deals_keyboard(deals),
+        reply_markup=paginator(),
     )
 
 
@@ -443,7 +459,7 @@ async def tip_here_amount(message: Message, repo: Repo, state: FSMContext):
 
 def register_user_rialto_handlers(dp: Dispatcher):
     # биржа труда
-    dp.register_message_handler(rialto, Text("Услуги"), state="*")
+    dp.register_message_handler(rialto, Text("Услуги💼"), state="*")
     dp.register_callback_query_handler(rialto_here_job, Text(startswith="job"), state=Rialto.here_job)
     dp.register_callback_query_handler(rialto_here_price, Text(startswith="price"), state=Rialto.here_price)
 
@@ -451,7 +467,7 @@ def register_user_rialto_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(user_info, Text(startswith="user"), state=Rialto.swap)
 
     # гарант
-    dp.register_message_handler(guarantee, Text("Сделки"), state="*")
+    dp.register_message_handler(guarantee, Text("Сделки💰"), state="*")
     dp.register_callback_query_handler(create_deal, Text("create_deal"), state="*")
     dp.register_message_handler(create_deal_here_executor_id, state=CreateDeal.here_executor_id)
     dp.register_callback_query_handler(create_deal_here_executor_id_callback, Text(startswith="create_deal_"),

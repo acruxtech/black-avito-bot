@@ -25,6 +25,8 @@ class User(BaseCommon):
     is_tg_premium = Column(Boolean)
     is_paid = Column(Boolean, nullable=True)
     role = Column(Integer)
+    priority = Column(Integer, default=0)
+    is_highlight = Column(Boolean, default=False)
     balance = Column(Float, default=0)
     is_shadow_ban = Column(Boolean, default=False)
 
@@ -53,3 +55,11 @@ class Deal(BaseCommon):
     conditions = Column(Text)
     is_completed = Column(Boolean, default=False)
     rating = Column(Integer, nullable=True)     # от 1 до 5
+
+
+class UnreadMessage(BaseCommon):
+    __tablename__ = "unread_messages"
+
+    from_telegram_id = Column(BigInteger)
+    to_telegram_id = Column(BigInteger)
+    message_id = Column(BigInteger)

@@ -6,3 +6,4 @@ class Rialto(StatesGroup):
     here_price = State()
 
     swap = State()
+    swap_deals = State()

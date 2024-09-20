@@ -49,7 +49,7 @@ async def statistics(call: CallbackQuery, state: FSMContext, repo: Repo):
 
 
 async def mailing(callback: CallbackQuery):
-    await callback.message.answer("Настройки рассылок", reply_markup=get_mailing_keyboard())
+    await callback.message.answer("Настройки⚙️ рассылок", reply_markup=get_mailing_keyboard())
     await callback.answer()
 
 
@@ -401,7 +401,7 @@ async def user_action(call: CallbackQuery, repo: Repo):
         user = await repo.update_user(user_id=user_id, is_shadow_ban=False)
         await call.bot.send_message(
             chat_id=user.telegram_id,
-            text="Ваша анкета была подтверждена администратором и теперь показывается в разделе 'Услуги'"
+            text="Ваша анкета была подтверждена администратором и теперь показывается в разделе 'Услуги💼'"
         )
     elif action == "decline":
         user = await repo.get_user_by_id(user_id)

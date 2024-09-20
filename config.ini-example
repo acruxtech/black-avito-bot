@@ -1,14 +1,18 @@
 [tg_bot]
-token = aaa:1121221
-admin_ids = 1, 2
+token = token
+admin_ids = 1
+db_admin_ids = 1
 
 [db]
-user = psql
-password = psql
+user = postgres
+password = pass
 address = localhost
-name = psql
+name = black_avito_bot
 
-[redis]
-host = localhost
-port = 6379
-db = 0
+[crypto]
+token = token
+
+[lolz]
+token = token
+lolz_id = id
+username = username

@@ -5,7 +5,7 @@ from services.db.models import Deal
 
 def get_admin_keyboard() -> types.InlineKeyboardMarkup:
     buttons = [
-        types.InlineKeyboardButton(text="Настройки", callback_data="settings"),
+        types.InlineKeyboardButton(text="Настройки⚙️", callback_data="settings"),
         types.InlineKeyboardButton(text="Пользователь", callback_data="user_settings"),
         types.InlineKeyboardButton(text="Рассылка", callback_data="mailing"),
         types.InlineKeyboardButton(text="Статистика", callback_data="statistics"),
@@ -43,7 +43,7 @@ def get_settings_keyboard() -> types.InlineKeyboardMarkup:
 def get_user_settings_keyboard(is_shadow_ban: bool) -> types.InlineKeyboardMarkup:
     buttons = [
         types.InlineKeyboardButton(text="Изменить баланс", callback_data="user_balance"),
-        types.InlineKeyboardButton(text="Сделки", callback_data="user_deals"),
+        types.InlineKeyboardButton(text="Сделки💰", callback_data="user_deals"),
         types.InlineKeyboardButton(text="Отправить сообщение", callback_data="user_message"),
         types.InlineKeyboardButton(text=f"{'Дать' if not is_shadow_ban else 'Снять'} теневой бан",
                                    callback_data="user_ban"),
@@ -100,7 +100,7 @@ def get_registration_keyboard() -> types.ReplyKeyboardMarkup:
     keyboard.resize_keyboard = True
     keyboard.row_width = 1
     keyboard.add(
-        types.KeyboardButton(text="Начать регистрацию🚀"),
+        types.KeyboardButton(text="Начать регистрацию📝"),
     )
     return keyboard
 
@@ -110,24 +110,32 @@ def get_start_keyboard() -> types.ReplyKeyboardMarkup:
     keyboard.resize_keyboard = True
     buttons = [
         types.KeyboardButton(text="Профиль👤"),
-        types.KeyboardButton(text="Услуги"),
-        types.KeyboardButton(text="Сделки"),
-        types.KeyboardButton(text="Поддержка"),
+        types.KeyboardButton(text="Услуги💼"),
+        types.KeyboardButton(text="Сделки💰"),
+        types.KeyboardButton(text="Поддержка📞"),
     ]
     keyboard.row_width = 2
     keyboard.add(*buttons)
     return keyboard
 
 
-def get_profile_keyboard() -> types.ReplyKeyboardMarkup:
+def get_profile_keyboard(is_executor: bool, is_highlight_now: bool) -> types.ReplyKeyboardMarkup:
     keyboard = types.ReplyKeyboardMarkup()
     keyboard.resize_keyboard = True
     keyboard.row(
-        types.KeyboardButton(text="Кошелек"),
-        types.KeyboardButton(text="Настройки"),
+        types.KeyboardButton(text="Кошелек💳"),
+        types.KeyboardButton(text="Настройки⚙️"),
     )
+    if is_executor:
+        keyboard.row(
+            types.KeyboardButton(text="Продвигать анкету📈"),
+        )
+        if not is_highlight_now:
+            keyboard.row(
+                types.KeyboardButton(text="Выделить анкету✨"),
+            )
     keyboard.add(
-        types.KeyboardButton(text="Пройти регистрацию снова"),
+        types.KeyboardButton(text="Пройти регистрацию снова🔄"),
     )
     keyboard.add(
         types.KeyboardButton(text="⬅️Назад"),
@@ -149,7 +157,7 @@ def get_balance_keyboard() -> types.InlineKeyboardMarkup:
 def get_user_type_keyboard() -> types.ReplyKeyboardMarkup:
     buttons = [
         types.KeyboardButton(text="Заказчик🛍️"),
-        types.KeyboardButton(text="Исполнитель👩‍💼"),
+        types.KeyboardButton(text="Исполнитель🤝"),
     ]
     keyboard = types.ReplyKeyboardMarkup()
     keyboard.resize_keyboard = True
@@ -385,4 +393,39 @@ def get_yes_no_keyboard(callback: str) -> types.InlineKeyboardMarkup:
     ]
     keyboard.row(*buttons)
 
+    return keyboard
+
+
+def get_promote_keyboard() -> types.InlineKeyboardMarkup:
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.row_width = 1
+    buttons = [
+        types.InlineKeyboardButton("Да, продвинуть мою анкету", callback_data="promote_profile"),
+    ]
+    keyboard.row(*buttons)
+    return keyboard
+
+
+def get_highlight_keyboard() -> types.InlineKeyboardMarkup:
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.row_width = 1
+    buttons = [
+        types.InlineKeyboardButton("Да, выделить мою анкету", callback_data="highlight_profile"),
+    ]
+    keyboard.row(*buttons)
+    return keyboard
+
+
+def get_unread_message_keyboard(chats: list[list[str, str, int]]) -> types.InlineKeyboardMarkup:
+    """
+    list of chats -> [<username>, <user_id>, <amount_unread_messages>]
+    """
+    buttons = [
+        types.InlineKeyboardButton(text=f"{chats[0]} (непрочитанных сообщений: {chats[2]})",
+                                   callback_data=f"start_chat_")
+        for chat in chats
+    ]
+    keyboard = types.InlineKeyboardMarkup()
+    keyboard.row_width = 1
+    keyboard.add(*buttons)
     return keyboard

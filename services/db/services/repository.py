@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from assets.misc import generate_name
-from services.db.models import User, Job, Deal
+from services.db.models import User, Job, Deal, UnreadMessage
 
 logger = logging.getLogger(__name__)
 
@@ -270,3 +270,32 @@ class Repo:
             setattr(deal, key, value)
         await self.conn.commit()
         return deal
+
+    async def add_unread_message(self, from_telegram_id: int, to_telegram_id: int, message_id: int):
+        new_message = UnreadMessage(
+            from_telegram_id=from_telegram_id,
+            to_telegram_id=to_telegram_id,
+            message_id=message_id,
+        )
+
+        self.conn.add(new_message)
+        await self.conn.commit()
+
+    async def get_user_unread_messages(self, to_telegram_id: int) -> list[UnreadMessage]:
+        res = await self.conn.execute(
+            select(UnreadMessage).where(UnreadMessage.to_telegram_id == to_telegram_id)
+        )
+
+        return res.scalars().all()
+
+    async def get_unread_message_by_id(self, message_id: int) -> list[UnreadMessage]:
+        res = await self.conn.execute(
+            select(UnreadMessage).where(UnreadMessage.message_id == message_id)
+        )
+
+        return res.scalars().first()
+
+    async def delete_unread_message(self, message_id: int):
+        unread_message = await self.get_unread_message_by_id(message_id)
+        await self.conn.delete(unread_message)
+        await self.conn.commit()
